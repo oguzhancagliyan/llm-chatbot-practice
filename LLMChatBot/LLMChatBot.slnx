@@ -1,0 +1,8 @@
+<Solution>
+  <Project Path="AppHost\AppHost.csproj" />
+  <Project Path="API\API.csproj" />
+  <Project Path="Domain/Domain.csproj" />
+  <Project Path="Features/Features.csproj" />
+  <Project Path="Infra/Infra.csproj" />
+  <Project Path="Shared/Shared.csproj" />
+</Solution>

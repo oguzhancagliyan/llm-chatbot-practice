@@ -258,6 +258,10 @@ orleans.codegen.cs
 
 # Including strong name files can present a security risk
 # (https://github.com/github/gitignore/pull/2483#issue-259490424)
+
+# Local app config
+**/appsettings.json
+**/appsettings.Development.json
 #*.snk
 
 # Since there are multiple workflows, uncomment next line to ignore bower_components
@@ -416,3 +420,9 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+/.idea
+
+# Local app config
+**/appsettings.json
+**/appsettings.Development.json
+/LLMChatBot/.idea
