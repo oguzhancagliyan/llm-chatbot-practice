@@ -6,6 +6,7 @@ using Infra.Configuration.Redis;
 using Infra.LLMAgents.OpenAI;
 using Infra.Persistence.PostgreSql;
 using Infra.Persistence.Redis;
+using Infra.Streaming;
 using Domain.DomainInterfaces;
 using Infra.LLMAgents.Gemini;
 using Microsoft.Extensions.Configuration;
@@ -29,6 +30,7 @@ public static class Resolver
         AddOpenAi(services, configuration);
         AddGemini(services, configuration);
         AddChatModelSelection(services, configuration);
+        services.AddSingleton<IChatStreamBus, InMemoryChatStreamBus>();
         return services;
     }
 

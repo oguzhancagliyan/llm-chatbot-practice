@@ -1,3 +1,4 @@
+using Features.Chat.GetStreamMessages;
 using Features.Chat.SendMessage;
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
@@ -10,6 +11,8 @@ public static class Resolver
     {
         services.AddScoped<SendMessageCommandHandler>();
         services.AddScoped<IValidator<SendMessageCommand>, SendMessageCommandValidator>();
+        services.AddScoped<GetStreamMessagesQueryHandler>();
+        services.AddScoped<IValidator<GetStreamMessagesQuery>, GetStreamMessagesQueryValidator>();
         return services;
     }
 }

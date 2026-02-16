@@ -2,6 +2,7 @@ using Domain.DomainInterfaces;
 using Domain.Entities;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Shared.Abstractions;
+using System.Text;
 
 namespace Features.Chat.SendMessage;
 
@@ -11,21 +12,26 @@ public class SendMessageCommandHandler
     private readonly IChatMessageRepository _chatMessageRepository;
     private readonly IChatModelClient _chatModelClient;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IChatStreamBus _chatStreamBus;
 
     public SendMessageCommandHandler(
         IConversationCache conversationCache,
         IChatMessageRepository chatMessageRepository,
         IChatModelClient chatModelClient,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        IChatStreamBus chatStreamBus)
     {
         _conversationCache = conversationCache;
         _chatMessageRepository = chatMessageRepository;
         _chatModelClient = chatModelClient;
         _unitOfWork = unitOfWork;
+        _chatStreamBus = chatStreamBus;
     }
 
     public async Task<string> HandleAsync(SendMessageCommand command, CancellationToken cancellationToken = default)
     {
+        var messageId = command.MessageId ?? Guid.NewGuid();
+
         var history =
             await _conversationCache.GetConversationMessagesAsync(command.ConversationId, cancellationToken) ??
             new List<ChatMessage>();
@@ -43,13 +49,40 @@ public class SendMessageCommandHandler
 
         messages.Add(userMessage);
 
-        var responseMessages = await _chatModelClient.CompleteAsync(messages, cancellationToken);
+        await _chatStreamBus.PublishAsync(messageId, command.ConversationId, "started", "stream-started", cancellationToken);
 
-        var assistantObj = responseMessages.Last();
+        var assistantContentBuilder = new StringBuilder();
+        string modelId = "unknown-model";
 
-        var assistantRole = assistantObj.Role;
-        var assistantContent = assistantObj.Content ?? string.Empty;
-        var modelId = assistantObj.ModelId ?? "unknown-model";
+        try
+        {
+            await foreach (var chunk in _chatModelClient.StreamAsync(messages, cancellationToken))
+            {
+                if (string.IsNullOrEmpty(chunk))
+                {
+                    continue;
+                }
+
+                assistantContentBuilder.Append(chunk);
+                await _chatStreamBus.PublishAsync(messageId, command.ConversationId, "chunk", chunk, cancellationToken);
+            }
+        }
+        catch (Exception ex)
+        {
+            await _chatStreamBus.PublishAsync(messageId, command.ConversationId, "error", ex.Message, cancellationToken);
+            throw;
+        }
+
+        if (assistantContentBuilder.Length == 0)
+        {
+            var fallbackResponse = await _chatModelClient.CompleteAsync(messages, cancellationToken);
+            var fallbackMessage = fallbackResponse.LastOrDefault();
+            assistantContentBuilder.Append(fallbackMessage?.Content ?? string.Empty);
+            modelId = fallbackMessage?.ModelId ?? modelId;
+        }
+
+        var assistantRole = AuthorRole.Assistant;
+        var assistantContent = assistantContentBuilder.ToString();
 
         var assistantMessage = new ChatMessage
         {
@@ -77,6 +110,8 @@ public class SendMessageCommandHandler
             TimeSpan.FromHours(24),
             cancellationToken
         );
+
+        await _chatStreamBus.PublishAsync(messageId, command.ConversationId, "completed", assistantContent, cancellationToken);
 
         return assistantContent;
     }

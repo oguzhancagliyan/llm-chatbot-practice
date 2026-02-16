@@ -35,9 +35,12 @@ public static class SendMessageEndpoint
             return Results.ValidationProblem(errors);
         }
 
-        var response = await handler.HandleAsync(command, cancellationToken);
-        return Results.Ok(new SendMessageResponse(command.ConversationId, response));
+        var messageId = command.MessageId ?? Guid.NewGuid();
+        var commandToHandle = command with { MessageId = messageId };
+
+        var response = await handler.HandleAsync(commandToHandle, cancellationToken);
+        return Results.Ok(new SendMessageResponse(command.ConversationId, messageId, response));
     }
 
-    private sealed record SendMessageResponse(Guid ConversationId, string Response);
+    private sealed record SendMessageResponse(Guid ConversationId, Guid MessageId, string Response);
 }
