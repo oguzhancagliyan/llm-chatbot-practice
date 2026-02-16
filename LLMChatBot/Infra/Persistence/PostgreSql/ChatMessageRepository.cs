@@ -9,7 +9,6 @@ public class ChatMessageRepository(ChatBotDbContext dbContext) : IChatMessageRep
     public async Task AddAsync(ChatMessage message, CancellationToken cancellationToken = default)
     {
         await dbContext.ChatMessages.AddAsync(message, cancellationToken);
-        await dbContext.SaveChangesAsync(cancellationToken);
     }
 
     public async Task<IReadOnlyList<ChatMessage>> GetByConversationIdAsync(

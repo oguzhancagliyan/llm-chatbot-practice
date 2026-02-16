@@ -41,6 +41,7 @@ public static class Resolver
             options.UseNpgsql(connectionString));
 
         services.AddScoped<IChatMessageRepository, ChatMessageRepository>();
+        services.AddScoped<IUnitOfWork, EfUnitOfWork>();
     }
 
     private static void AddRedis(IServiceCollection services, IConfiguration configuration)

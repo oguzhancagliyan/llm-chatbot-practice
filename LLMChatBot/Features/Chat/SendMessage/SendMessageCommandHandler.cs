@@ -10,13 +10,18 @@ public class SendMessageCommandHandler
     private readonly IConversationCache _conversationCache;
     private readonly IChatMessageRepository _chatMessageRepository;
     private readonly IChatModelClient _chatModelClient;
+    private readonly IUnitOfWork _unitOfWork;
 
-    public SendMessageCommandHandler(IConversationCache conversationCache, IChatMessageRepository chatMessageRepository,
-        IChatModelClient chatModelClient)
+    public SendMessageCommandHandler(
+        IConversationCache conversationCache,
+        IChatMessageRepository chatMessageRepository,
+        IChatModelClient chatModelClient,
+        IUnitOfWork unitOfWork)
     {
         _conversationCache = conversationCache;
         _chatMessageRepository = chatMessageRepository;
         _chatModelClient = chatModelClient;
+        _unitOfWork = unitOfWork;
     }
 
     public async Task<string> HandleAsync(SendMessageCommand command, CancellationToken cancellationToken = default)
@@ -27,12 +32,13 @@ public class SendMessageCommandHandler
 
         var messages = history.ToList();
 
-        var userMessage = new ChatMessage()
+        var userMessage = new ChatMessage
         {
+            Id = Guid.NewGuid(),
             Role = AuthorRole.User,
             Content = command.Message,
             ConversationId = command.ConversationId,
-            ModelId = ""
+            ModelId = "pending"
         };
 
         messages.Add(userMessage);
@@ -41,26 +47,37 @@ public class SendMessageCommandHandler
 
         var assistantObj = responseMessages.Last();
 
+        var assistantRole = assistantObj.Role;
+        var assistantContent = assistantObj.Content ?? string.Empty;
+        var modelId = assistantObj.ModelId ?? "unknown-model";
+
         var assistantMessage = new ChatMessage
         {
             Id = Guid.NewGuid(),
             ConversationId = command.ConversationId,
-            Role = assistantObj.Role,
-            Content = assistantObj.Content,
-            ModelId = assistantObj.ModelId,
+            Role = assistantRole,
+            Content = assistantContent,
+            ModelId = modelId,
         };
 
-        userMessage.ModelId = assistantObj.ModelId;
+        userMessage.ModelId = modelId;
 
         messages.Add(assistantMessage);
 
-        await _conversationCache.SetConversationMessagesAsync(command.ConversationId, messages,
-            TimeSpan.FromHours(24), cancellationToken);
+        await _unitOfWork.ExecuteInTransactionAsync(async ct =>
+        {
+            await _chatMessageRepository.AddAsync(userMessage, ct);
+            await _chatMessageRepository.AddAsync(assistantMessage, ct);
+            await _unitOfWork.SaveChangesAsync(ct);
+        }, cancellationToken);
 
-        //TODO: implement transaction here
-        await _chatMessageRepository.AddAsync(userMessage);
-        await _chatMessageRepository.AddAsync(assistantMessage);
+        await _conversationCache.SetConversationMessagesAsync(
+            command.ConversationId,
+            messages,
+            TimeSpan.FromHours(24),
+            cancellationToken
+        );
 
-        return assistantMessage.Content;
+        return assistantContent;
     }
 }
