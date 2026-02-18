@@ -30,11 +30,4 @@ public class OpenAiChatModelClient(
         var response = await chatCompletionService.GetChatMessageContentsAsync(chatHistory);
         return response;
     }
-
-    public IAsyncEnumerable<string> StreamAsync(
-        IReadOnlyList<ChatMessage> messages,
-        CancellationToken cancellationToken = default)
-    {
-        throw new NotImplementedException();
-    }
 }

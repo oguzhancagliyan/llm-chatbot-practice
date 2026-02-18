@@ -29,11 +29,4 @@ public class GeminiChatModelClient(
         var response = await chatCompletionService.GetChatMessageContentsAsync(chatHistory, cancellationToken: cancellationToken);
         return response;
     }
-
-    public IAsyncEnumerable<string> StreamAsync(
-        IReadOnlyList<ChatMessage> messages,
-        CancellationToken cancellationToken = default)
-    {
-        throw new NotImplementedException();
-    }
 }
