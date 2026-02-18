@@ -1,5 +1,4 @@
 using Features.Chat.GetConversationMessages;
-using Features.Chat.GetStreamMessages;
 using Features.Chat.SendMessage;
 using Features.Infra.Health;
 using Microsoft.AspNetCore.Builder;
@@ -13,7 +12,6 @@ public static class EndpointMapper
     {
         endpoints.MapInfrastructureHealthEndpoint();
         endpoints.MapSendMessageEndpoint();
-        endpoints.MapGetStreamMessagesEndpoint();
         endpoints.MapGetConversationMessagesEndpoint();
 
         return endpoints;

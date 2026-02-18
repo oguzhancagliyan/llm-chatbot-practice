@@ -8,8 +8,4 @@ public interface IChatModelClient
     Task<IReadOnlyList<ChatMessageContent>> CompleteAsync(
         IReadOnlyList<ChatMessage> messages,
         CancellationToken cancellationToken = default);
-
-    IAsyncEnumerable<string> StreamAsync(
-        IReadOnlyList<ChatMessage> messages,
-        CancellationToken cancellationToken = default);
 }
