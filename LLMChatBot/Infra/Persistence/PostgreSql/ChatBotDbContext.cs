@@ -11,6 +11,7 @@ public class ChatBotDbContext(DbContextOptions<ChatBotDbContext> options) : DbCo
     public DbSet<ConversationSummary> ConversationSummaries => Set<ConversationSummary>();
     public DbSet<ConversationState> ConversationStates => Set<ConversationState>();
     public DbSet<OutboxEvent> OutboxEvents => Set<OutboxEvent>();
+    public DbSet<RagDocumentChunk> RagDocumentChunks => Set<RagDocumentChunk>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -69,6 +70,19 @@ public class ChatBotDbContext(DbContextOptions<ChatBotDbContext> options) : DbCo
             entity.Property(x => x.LastError).HasMaxLength(2000);
             entity.HasIndex(x => x.ProcessedAt);
             entity.HasIndex(x => x.CreatedAt);
+        });
+
+        modelBuilder.Entity<RagDocumentChunk>(entity =>
+        {
+            entity.ToTable("rag_document_chunks");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.SourceId).HasMaxLength(256).IsRequired();
+            entity.Property(x => x.ChunkIndex).IsRequired();
+            entity.Property(x => x.Content).IsRequired();
+            entity.Property(x => x.Embedding).HasColumnType("double precision[]").IsRequired();
+            entity.Property(x => x.CreatedAt).IsRequired();
+            entity.HasIndex(x => x.SourceId);
+            entity.HasIndex(x => new { x.SourceId, x.ChunkIndex }).IsUnique();
         });
     }
 }

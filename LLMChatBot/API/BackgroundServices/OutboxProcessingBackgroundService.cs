@@ -63,7 +63,8 @@ public class OutboxProcessingBackgroundService(
         }
     }
 
-    private async Task HandleOutboxEventAsync(IServiceProvider sp, OutboxEvent outboxEvent, CancellationToken cancellationToken)
+    private async Task HandleOutboxEventAsync(IServiceProvider sp, OutboxEvent outboxEvent,
+        CancellationToken cancellationToken)
     {
         if (!string.Equals(outboxEvent.EventType, "ConversationUpdated", StringComparison.Ordinal))
         {
@@ -79,7 +80,8 @@ public class OutboxProcessingBackgroundService(
         await HandleConversationUpdatedAsync(sp, payload.ConversationId, cancellationToken);
     }
 
-    private async Task HandleConversationUpdatedAsync(IServiceProvider sp, Guid conversationId, CancellationToken cancellationToken)
+    private async Task HandleConversationUpdatedAsync(IServiceProvider sp, Guid conversationId,
+        CancellationToken cancellationToken)
     {
         var stateRepository = sp.GetRequiredService<IConversationStateRepository>();
         var summaryRepository = sp.GetRequiredService<IConversationSummaryRepository>();
@@ -119,12 +121,14 @@ public class OutboxProcessingBackgroundService(
             cancellationToken
         );
 
-        if (newMessages.Count == 0)
+        var filteredMessages = newMessages.Where(c => c.Role == AuthorRole.User || c.Role == AuthorRole.Assistant).ToList();
+
+        if (filteredMessages.Count == 0)
         {
             return;
         }
 
-        var summaryPrompt = BuildSummaryPrompt(latestSummary?.Summary, newMessages, conversationId);
+        var summaryPrompt = BuildSummaryPrompt(latestSummary?.Summary, filteredMessages, conversationId);
         var response = await chatModelClient.CompleteAsync(summaryPrompt, cancellationToken);
         var summaryResponse = response.LastOrDefault();
         var summaryText = summaryResponse?.Content?.Trim();
@@ -162,7 +166,7 @@ public class OutboxProcessingBackgroundService(
         Guid conversationId)
     {
         var previousSummaryPart = string.IsNullOrWhiteSpace(previousSummary)
-            ? "No previous summary exists."
+            ? "Previous summary: (none)"
             : $"Previous summary:\n{previousSummary}";
 
         var promptMessages = new List<ChatMessage>
@@ -173,10 +177,25 @@ public class OutboxProcessingBackgroundService(
                 ConversationId = conversationId,
                 Role = AuthorRole.System,
                 Content =
-                    "You are maintaining an incremental conversation summary used to reduce token usage.\n" +
-                    $"{previousSummaryPart}\n\n" +
-                    "Using ONLY the new conversation messages provided next, produce an updated summary that merges old context with new information. " +
-                    "Focus on user intent, constraints, decisions, preferences, and unresolved items. Keep it concise and factual.",
+                    "You are maintaining a long-term conversation summary.\n\n" +
+                    "CRITICAL RULES:\n" +
+                    "- Only summarize USER and ASSISTANT conversation messages.\n" +
+                    "- DO NOT include any knowledge base context (RAG context).\n" +
+                    "- DO NOT include system instructions.\n" +
+                    "- DO NOT include citation metadata.\n" +
+                    "- Ignore any messages that are marked as coming from external knowledge sources.\n\n" +
+                    "Your goal:\n" +
+                    "Produce a concise, factual summary that preserves:\n" +
+                    "- User intent\n" +
+                    "- Constraints\n" +
+                    "- Decisions\n" +
+                    "- Preferences\n" +
+                    "- Important facts about the user\n" +
+                    "- Unresolved questions\n\n" +
+                    "Keep it short and structured.\n" +
+                    "Do not invent information.\n" +
+                    "Do not repeat raw conversation text.\n\n" +
+                    previousSummaryPart,
                 ModelId = "summary-worker"
             }
         };
