@@ -3,6 +3,7 @@ using Infra.Configuration.AgentSelection;
 using Infra.Configuration.Gemini;
 using Infra.Configuration.OpenAI;
 using Infra.Configuration.Redis;
+using Infra.Embeddings;
 using Infra.LLMAgents.OpenAI;
 using Infra.Persistence.PostgreSql;
 using Infra.Persistence.Redis;
@@ -44,6 +45,7 @@ public static class Resolver
         services.AddScoped<IConversationSummaryRepository, ConversationSummaryRepository>();
         services.AddScoped<IConversationStateRepository, ConversationStateRepository>();
         services.AddScoped<IOutboxEventRepository, OutboxEventRepository>();
+        services.AddScoped<IRagDocumentRepository, RagDocumentRepository>();
         services.AddScoped<IUnitOfWork, EfUnitOfWork>();
     }
 
@@ -60,6 +62,9 @@ public static class Resolver
             return ConnectionMultiplexer.Connect(configurationOptions);
         });
         services.AddSingleton<IConversationCache, ConversationCache>();
+        services.AddSingleton<IEmbeddingCache, RedisEmbeddingCache>();
+        services.AddSingleton<IKnowledgeBaseVersionProvider, RedisKnowledgeBaseVersionProvider>();
+        services.AddSingleton<IRagRetrievalCache, RedisRagRetrievalCache>();
     }
 
     private static void AddOpenAi(IServiceCollection services, IConfiguration configuration)
@@ -78,8 +83,10 @@ public static class Resolver
                 apiKey: openAiOptions.ApiKey
             );
         });
-        
+
         services.AddKeyedScoped<IChatModelClient, OpenAiChatModelClient>(AgentModels.OpenAi);
+        services.AddScoped<OpenAiEmbeddingClient>();
+        services.AddScoped<IEmbeddingClient, EmbeddingClientWithCache>();
     }
 
     private static void AddGemini(IServiceCollection services, IConfiguration configuration)

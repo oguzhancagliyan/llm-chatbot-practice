@@ -4,6 +4,7 @@ using Infra.Persistence.PostgreSql;
 using LLMChatBot.API.BackgroundServices;
 using LLMChatBot.API.Configuration;
 using Microsoft.EntityFrameworkCore;
+using Shared.Configuration;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,6 +18,9 @@ builder.Services.Configure<ConversationSummaryOptions>(
 );
 builder.Services.Configure<OutboxProcessingOptions>(
     builder.Configuration.GetSection(OutboxProcessingOptions.ConfigSectionName)
+);
+builder.Services.Configure<RagOptions>(
+    builder.Configuration.GetSection(RagOptions.ConfigSectionName)
 );
 builder.Services.AddHostedService<OutboxProcessingBackgroundService>();
 
@@ -119,6 +123,21 @@ static async Task EnsureAppSchemaAsync(ChatBotDbContext dbContext, CancellationT
 
                        CREATE INDEX IF NOT EXISTS ix_outbox_events_created_at
                            ON outbox_events (created_at);
+
+                       CREATE TABLE IF NOT EXISTS rag_document_chunks (
+                           id uuid PRIMARY KEY,
+                           source_id character varying(256) NOT NULL,
+                           chunk_index integer NOT NULL,
+                           content text NOT NULL,
+                           embedding double precision[] NOT NULL,
+                           created_at timestamp with time zone NOT NULL
+                       );
+
+                       CREATE INDEX IF NOT EXISTS ix_rag_document_chunks_source_id
+                           ON rag_document_chunks (source_id);
+
+                       CREATE UNIQUE INDEX IF NOT EXISTS ix_rag_document_chunks_source_id_chunk_index
+                           ON rag_document_chunks (source_id, chunk_index);
                        """;
 
     await dbContext.Database.ExecuteSqlRawAsync(sql, cancellationToken);

@@ -36,8 +36,8 @@ public static class SendMessageEndpoint
         }
 
         var response = await handler.HandleAsync(command, cancellationToken);
-        return Results.Ok(new SendMessageResponse(command.ConversationId, response));
+        return Results.Ok(new SendMessageResponse(command.ConversationId, response.Response, response.Citations));
     }
 
-    private sealed record SendMessageResponse(Guid ConversationId, string Response);
+    private sealed record SendMessageResponse(Guid ConversationId, string Response, IReadOnlyList<ChatCitation> Citations);
 }
